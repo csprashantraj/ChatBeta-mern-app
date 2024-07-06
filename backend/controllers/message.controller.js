@@ -1,5 +1,6 @@
 import Conversation from '../models/conversation.model.js';
 import Message from '../models/message.model.js';
+import { getReceiverSocketId, io } from '../socket/socket.js';
 
 export const sendMessage = async (req, res) => {
     try {
@@ -33,19 +34,24 @@ export const sendMessage = async (req, res) => {
             conversation.messages.push(newMessage._id);
         }
 
-        // we will add socket IO to the conversation
-
         // this runs in series so takes more time than promising both at once
         // await conversation.save();
         // await newMessage.save();
-
+        
         //suppose conversation.save() takes 1second and same goes for newMessage
         // so total time taken will be 2 seconds
         // so we use Promise.all() to run both in parallel
-
+        
         await Promise.all([conversation.save(), newMessage.save()]);
 
-        res.status(201).json({ newMessage })
+        // SOCKET IO functionality
+        const recieverSocketId = getReceiverSocketId(receiverId);
+        if(recieverSocketId) {
+            // io.to(<Socket Id>).emit() used to send events to specific client socket
+            io.to(recieverSocketId).emit("newMessage", newMessage);
+        }
+
+        res.status(201).json( newMessage )
 
     } catch (error) {
         console.log('Error in sendMessage controller', error.message);
